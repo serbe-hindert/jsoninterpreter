@@ -38,5 +38,4 @@ int main() {
 
     JSON_desintegrate(deserializable);
     JSON_desintegrate(inner);
-    free(xy);
 ```
