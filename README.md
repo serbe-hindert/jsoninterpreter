@@ -3,7 +3,7 @@ a interpreter for JSON written in C <br>
 only works with minimized JSON
 
 ## Link library like
-Recompile if need be, or for Windows 10 just use the compiled file
+Recompile if need be, or for Windows 10 gcc just use the compiled file
 
 ```
 target_link_libraries(projectname PRIVATE jsoninterpreter ${CMAKE_CURRENT_SOURCE_DIR}/lib/jsoninterpreter/jsoninterpreter.a)
