@@ -3,7 +3,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
+#if defined(__GNUC__)
+    #include <stdint-gcc.h>
+#else
+    #include <stdint.h>
+#endif
 
 #define JSON_PROPERTY_MAX_BUFFER_SIZE 256
 
