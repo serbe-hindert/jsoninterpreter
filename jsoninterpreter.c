@@ -21,14 +21,16 @@
 // using the upper 9 bit as flags, the lower 7 bit as indendation counter
 #define FLAG_16_OFF                                 0b0000000000000000
 #define FLAGS_16_IGNORED                            0b0000000001111111
+// array indexing supports 13 bit of indendation because why not
+#define FLAGS_16_IGNORED_ARRAY                      0b0001111111111111
 
-#define FLAG_16_BACKSLASH_BEFORE                    0b0000000100000000
-#define FLAG_16_INSIDE_STRING                       0b0000001000000000
+#define FLAG_16_INSIDE_CORRECT_VALUE_FIRST_TIME     0b0000000100000000
+#define FLAG_16_INSIDE_CORRECT_KEY                  0b0000001000000000
 #define FLAG_16_IS_KEY                              0b0000010000000000
 #define FLAG_16_SKIP_CURRENT_KEY                    0b0000100000000000
 #define FLAG_16_SKIP_CURRENT_VALUE                  0b0001000000000000
-#define FLAG_16_INSIDE_CORRECT_KEY                  0b0010000000000000
-#define FLAG_16_INSIDE_CORRECT_VALUE_FIRST_TIME     0b0100000000000000
+#define FLAG_16_INSIDE_STRING                       0b0010000000000000
+#define FLAG_16_BACKSLASH_BEFORE                    0b0100000000000000
 #define FLAG_16_INSIDE_CORRECT_VALUE                0b1000000000000000
 #define FLAG_16_IS_CORRECT_VALUE_STRING             0b0000000010000000
 
@@ -85,12 +87,15 @@ char* JSON_serialize(struct JSON_Serializable* restrict serializable) {
     if (json == NULL) {
         return NULL;
     }
-    serializable->payload[serializable->length - 1] = CHARACTER_NULL;
-    serializable->payload[serializable->length - 2] = CLOSE_BRACE;
     strcpy(json, serializable->payload);
+    json[serializable->length - 1] = CHARACTER_NULL;
+    json[serializable->length - 2] = CLOSE_BRACE;
+    return json;
+}
+
+void JSON_desintegrateSerializable(struct JSON_Serializable* restrict serializable) {
     free(serializable->payload);
     free(serializable);
-    return json;
 }
 
 // deserialize
@@ -234,7 +239,67 @@ struct JSON_Deserializable* JSON_deserializeProperty(const struct JSON_Deseriali
     return result;
 }
 
-void JSON_desintegrate(struct JSON_Deserializable* restrict deserializable) {
+struct JSON_Deserializable* JSON_deserialize_getFromArrayWithIndex(const struct JSON_Deserializable* restrict deserializable, const unsigned int index) {
+    unsigned int countOfElements = 0;
+    register uint16_t flags = FLAG_16_OFF;
+    unsigned int start = 0;
+    unsigned int i;
+    for (i = 0; i < deserializable->length; i++) {
+        // backslash before
+        if (deserializable->payload[i] == BACKSLASH) {
+            flags = FLAG_activate(flags, FLAG_16_BACKSLASH_BEFORE);
+            continue;
+        }
+        // inside string
+        if (FLAG_true(flags, FLAG_16_BACKSLASH_BEFORE)) {
+            flags = FLAG_deactivate(flags, FLAG_16_BACKSLASH_BEFORE);
+        } else {
+            if (deserializable->payload[i] == QUOTE) {
+                flags = FLAG_invert(flags, FLAG_16_INSIDE_STRING);
+                continue;
+            }
+        }
+        // indentation
+        if (FLAG_false(flags, FLAG_16_INSIDE_STRING) && (deserializable->payload[i] == OPEN_BRACE || deserializable->payload[i] == OPEN_BRACKET)) {
+            flags++;
+        } else if (FLAG_false(flags, FLAG_16_INSIDE_STRING) && (deserializable->payload[i] == CLOSE_BRACE || deserializable->payload[i] == CLOSE_BRACKET)) {
+            flags--;
+        }
+        // new element found?
+        if (FLAG_false(flags, FLAG_16_INSIDE_STRING) && (deserializable->payload[i] == OPEN_BRACKET || deserializable->payload[i] == OPEN_BRACE) && ((flags & FLAGS_16_IGNORED_ARRAY) == 2)) {
+            countOfElements++;
+        }
+        if (FLAG_false(flags, FLAG_16_INSIDE_STRING) && FLAG_true(flags, FLAG_16_INSIDE_CORRECT_VALUE) && (deserializable->payload[i] == CLOSE_BRACE || deserializable->payload[i] == CLOSE_BRACKET) && ((flags & FLAGS_16_IGNORED_ARRAY) == 1)) {
+            break;
+        }
+        if (countOfElements > index && FLAG_false(flags, FLAG_16_INSIDE_CORRECT_VALUE)) {
+            start = i;
+            flags = FLAG_activate(flags, FLAG_16_INSIDE_CORRECT_VALUE);
+            continue;
+        }
+    }
+    i += 2;
+    struct JSON_Deserializable* restrict result = malloc(sizeof(struct JSON_Deserializable));
+    if (result == NULL) {
+        return NULL;
+    }
+    // if string, hack so that it works :(
+    result->length = i - start;
+    if (FLAG_true(flags, FLAG_16_IS_CORRECT_VALUE_STRING)) {
+        result->length--;
+    }
+
+    result->payload = malloc(result->length);
+    if (result->payload == NULL) {
+        return NULL;
+    }
+    memcpy(result->payload, deserializable->payload + start, result->length - 1);
+    result->payload[result->length - 1] = '\0';
+
+    return result;
+}
+
+void JSON_desintegrateDeserializable(struct JSON_Deserializable* restrict deserializable) {
     free(deserializable->payload);
     free(deserializable);
 }
