@@ -1,5 +1,6 @@
 # jsoninterpreter
-a interpreter for JSON written in C
+a interpreter for JSON written in C <br>
+only works with minimized JSON
 
 ## Link library like
 Recompile if need be, or for Windows 10 just use the compiled file
