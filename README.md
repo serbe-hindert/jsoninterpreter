@@ -42,4 +42,7 @@ int main() {
     JSON_desintegrateDeserializable(deserializable);
     JSON_desintegrateDeserializable(inner);
     JSON_desintegrateDeserializable(array);
+    
+    return 0;
+}
 ```
